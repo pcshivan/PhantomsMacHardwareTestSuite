@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>macOS Hardware Test Suite - Automated Testing</title>
+    <style>
+        :root {
+            --green: #2f7d32;
+            --red: #c62828;
+            --yellow: #f57c00;
+            --blue: #2188b6;
+            --bg: #f5f5f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--blue), #1565a0);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .status-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .health-score {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .health-score.good { color: var(--green); }
+        .health-score.warning { color: var(--yellow); }
+        .health-score.critical { color: var(--red); }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--blue), #4caf50);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+        }
+
+        .test-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 4px solid #ccc;
+            background: #fafafa;
+        }
+
+        .test-item.pass { border-left-color: var(--green); background: #e8f5e9; }
+        .test-item.fail { border-left-color: var(--red); background: #ffebee; }
+        .test-item.warning { border-left-color: var(--yellow); background: #fff3e0; }
+        .test-item.running { border-left-color: var(--blue); background: #e3f2fd; }
+
+        .flag-section {
+            margin: 20px 0;
+        }
+
+        .flag-item {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border-left: 3px solid;
+        }
+
+        .red-flag {
+            background: #ffebee;
+            border-left-color: var(--red);
+        }
+
+        .green-flag {
+            background: #e8f5e9;
+            border-left-color: var(--green);
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--blue);
+            color: white;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #1565a0;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 macOS Hardware Test Suite</h1>
+            <p>Fully Automated Component Testing & Red Flag Detection</p>
+        </header>
+
+        <div class="status-panel">
+            <h2>Test Control</h2>
+            <button id="startBtn" onclick="startTests()">🚀 Start Automated Tests</button>
+            <button id="exportBtn" onclick="exportReport()" style="margin-left: 10px; display: none;">📄 Export Report</button>
+            
+            <div id="progressSection" style="display: none; margin-top: 20px;">
+                <p id="currentTest">Initializing...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 0%;">0%</div>
+                </div>
+            </div>
+
+            <div id="healthScore" style="display: none; margin-top: 30px;">
+                <h3>Overall Health Score</h3>
+                <div class="health-score" id="scoreValue">--</div>
+                <p id="scoreDescription" style="text-align: center;"></p>
+            </div>
+        </div>
+
+        <div id="flagsSection" style="display: none;">
+            <div class="status-panel">
+                <h2>🚩 Red Flags Detected</h2>
+                <div id="redFlagsList"></div>
+            </div>
+
+            <div class="status-panel">
+                <h2>✅ Green Flags (Healthy Components)</h2>
+                <div id="greenFlagsList"></div>
+            </div>
+        </div>
+
+        <div class="status-panel" id="resultsSection" style="display: none;">
+            <h2>📋 Detailed Test Results</h2>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <script>
+        let statusInterval = null;
+
+        async function startTests() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('progressSection').style.display = 'block';
+            
+            const response = await fetch('/api/start_tests', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({tests: 'all'})
+            });
+            
+            if (response.ok) {
+                statusInterval = setInterval(updateStatus, 1000);
+            }
+        }
+
+        async function updateStatus() {
+            const response = await fetch('/api/test_status');
+            const data = await response.json();
+            
+            document.getElementById('currentTest').textContent = 
+                `Current Test: ${data.current_test}`;
+            document.getElementById('progressBar').style.width = `${data.progress}%`;
+            document.getElementById('progressBar').textContent = `${data.progress}%`;
+            
+            if (data.complete) {
+                clearInterval(statusInterval);
+                loadResults();
+            }
+        }
+
+        async function loadResults() {
+            const response = await fetch('/api/results');
+            const data = await response.json();
+            
+            if (data.results) {
+                displayResults(data);
+                document.getElementById('exportBtn').style.display = 'inline-block';
+            }
+        }
+
+        function displayResults(data) {
+            // Display health score
+            const score = data.red_flags.health_score;
+            document.getElementById('healthScore').style.display = 'block';
+            document.getElementById('scoreValue').textContent = score;
+            
+            const scoreEl = document.getElementById('scoreValue');
+            if (score >= 80) {
+                scoreEl.className = 'health-score good';
+                document.getElementById('scoreDescription').textContent = 
+                    'Excellent - Hardware in great condition';
+            } else if (score >= 60) {
+                scoreEl.className = 'health-score warning';
+                document.getElementById('scoreDescription').textContent = 
+                    'Fair - Some issues detected, review red flags';
+            } else {
+                scoreEl.className = 'health-score critical';
+                document.getElementById('scoreDescription').textContent = 
+                    'Poor - Critical issues found, immediate action required';
+            }
+            
+            // Display red flags
+            const redFlagsHTML = data.red_flags.red_flags.map(flag => `
+                <div class="flag-item red-flag">
+                    <strong>🚨 ${flag.component} [${flag.severity.toUpperCase()}]</strong><br>
+                    <span style="color: #666;">Issue: ${flag.message}</span><br>
+                    <span style="color: #1565a0;">→ ${flag.recommendation}</span>
+                </div>
+            `).join('');
+            
+            // Display green flags
+            const greenFlagsHTML = data.red_flags.green_flags.map(flag => `
+                <div class="flag-item green-flag">✓ ${flag}</div>
+            `).join('');
+            
+            if (data.red_flags.red_flags.length > 0 || data.red_flags.green_flags.length > 0) {
+                document.getElementById('flagsSection').style.display = 'block';
+                document.getElementById('redFlagsList').innerHTML = 
+                    redFlagsHTML || '<p style="color: #666;">No critical issues detected</p>';
+                document.getElementById('greenFlagsList').innerHTML = 
+                    greenFlagsHTML || '<p style="color: #666;">No healthy components identified</p>';
+            }
+            
+            // Display detailed results
+            const resultsHTML = Object.entries(data.results).map(([name, result]) => {
+                const statusClass = result.status || 'unknown';
+                const statusIcon = {
+                    pass: '✓',
+                    fail: '✗',
+                    warning: '⚠',
+                    error: '❌'
+                }[statusClass] || '?';
+                
+                return `
+                    <div class="test-item ${statusClass}">
+                        <strong>${statusIcon} ${name}</strong>
+                        <div style="margin-top: 8px; font-size: 14px; color: #666;">
+                            ${formatTestDetails(result)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('testResults').innerHTML = resultsHTML;
+        }
+
+        function formatTestDetails(result) {
+            const details = [];
+            for (const [key, value] of Object.entries(result)) {
+                if (key !== 'status' && key !== 'timestamp') {
+                    details.push(`${key}: ${JSON.stringify(value)}`);
+                }
+            }
+            return details.join('<br>');
+        }
+
+        async function exportReport() {
+            const response = await fetch('/api/export_report');
+            const data = await response.json();
+            
+            if (data.report_path) {
+                alert(`✓ Report exported to: ${data.report_path}`);
+            }
+        }
+    </script>
+</body>
+</html>
