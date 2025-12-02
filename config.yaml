@@ -1,0 +1,32 @@
+# Hardware Test Suite Configuration
+
+test_settings:
+  stress_duration: 120  # seconds
+  cpu_cores: auto       # auto-detect or specify
+  memory_test_mb: 512   # MB to test
+  thermal_threshold: 95 # Celsius
+  battery_drain_test: 300 # seconds
+  
+thresholds:
+  cpu_temp_warning: 80
+  cpu_temp_critical: 95
+  battery_cycles_warning: 500
+  battery_cycles_critical: 1000
+  battery_health_warning: 80  # percent
+  memory_errors_critical: 10
+  ssd_health_warning: 90      # percent
+  
+web_server:
+  host: 127.0.0.1
+  port: 5000
+  debug: false
+  
+logging:
+  level: INFO
+  directory: ./logs
+  max_file_size_mb: 50
+  
+red_flags:
+  enable_counterfeit_detection: true
+  enable_thermal_monitoring: true
+  enable_performance_regression: true
